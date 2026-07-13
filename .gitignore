@@ -1,0 +1,28 @@
+# Gradle / build outputs
+.gradle/
+.kotlin/
+build/
+app/build/
+*/build/
+
+# Machine-specific
+local.properties
+
+# Signing / secrets
+*.jks
+*.keystore
+*.p12
+*.pem
+
+# One-shot key-seeding file (consumed and deleted by the app on first launch;
+# should never exist in a checkout, but excluded defensively).
+app/src/main/assets/keys.import
+keys.import
+
+# IDE / OS
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Note: app/libs/*.aar (RayNeo Mercury / IPC SDKs) ARE tracked — the app cannot build without them.
