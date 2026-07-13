@@ -34,6 +34,14 @@ import android.widget.TextView
  */
 class MainActivity : Activity() {
 
+    companion object {
+        // Default point in a beat to snap the NEXT frame (fresher = better match
+        // to what the wearer sees), clamped so the ~15s analysis+synthesis
+        // round-trip can never overrun the beat's end.
+        private const val CAPTURE_INTO_BEAT_MS = 14_000L
+        private const val ROUND_TRIP_BUDGET_MS = 15_000
+    }
+
     private lateinit var store: SciStore
     private lateinit var camera: EyeCamera
     private lateinit var brain: ScienceBrain
@@ -159,6 +167,9 @@ class MainActivity : Activity() {
 
     private fun onFrame(jpeg: ByteArray) {
         awaitingFrame = false
+        // Keep the newest frame on disk: lets us inspect exactly what Gemini saw
+        // (orientation/mirroring checks) without any extra capture path.
+        runCatching { java.io.File(filesDir, "last_frame.jpg").writeBytes(jpeg) }
         if (paused) { cycleBusy = false; return }
         val gen = generation
         val index = store.scientistIndex
@@ -184,24 +195,32 @@ class MainActivity : Activity() {
         }.start()
     }
 
-    /** Play one lecture beat and immediately start preparing the next one. */
+    /** Play one lecture beat and schedule the next capture as LATE as the beat
+     *  allows — a fresher frame means the commentary matches what the wearer is
+     *  actually looking at when the next beat plays. */
     private fun playBeat(audio: java.io.File) {
         playbackActive = true
         val gen = generation
-        speech.play(audio) {
-            playbackActive = false
-            if (gen != generation || paused) { pendingAudio?.delete(); pendingAudio = null; return@play }
-            val next = pendingAudio
-            pendingAudio = null
-            val gapMs = store.intervalSec * 1000L
-            if (next != null) main.postDelayed({
-                if (paused || gen != generation) next.delete() else playBeat(next)
-            }, gapMs)
-            else scheduleNext(gapMs)
-        }
-        // Prefetch: a beat lasts ~10-25s; kick the next analysis shortly after
-        // this one starts so it's ready (or nearly) when the voice goes quiet.
-        main.postDelayed({ if (!paused && gen == generation) cycleRunnable.run() }, 1_500L)
+        speech.play(audio,
+            onStart = { durationMs ->
+                // Capture 14s in by default, but never so late that the analysis
+                // + synthesis round-trip (~15s worst case) could miss the beat's
+                // end + gap. Short beats fall back toward an early capture.
+                val latestSafe = durationMs - ROUND_TRIP_BUDGET_MS
+                val offset = CAPTURE_INTO_BEAT_MS.coerceAtMost(latestSafe.toLong()).coerceAtLeast(1_500L)
+                main.postDelayed({ if (!paused && gen == generation) cycleRunnable.run() }, offset)
+            },
+            onDone = {
+                playbackActive = false
+                if (gen != generation || paused) { pendingAudio?.delete(); pendingAudio = null; return@play }
+                val next = pendingAudio
+                pendingAudio = null
+                val gapMs = store.intervalSec * 1000L
+                if (next != null) main.postDelayed({
+                    if (paused || gen != generation) next.delete() else playBeat(next)
+                }, gapMs)
+                else scheduleNext(gapMs)
+            })
     }
 
     private fun clearPipeline() {

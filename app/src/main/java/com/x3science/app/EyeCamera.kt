@@ -29,6 +29,7 @@ class EyeCamera(private val context: Context) {
     @Volatile var isOpen = false
         private set
     @Volatile private var opening = false
+    private var sensorOrientation = 0
 
     var onFrame: ((ByteArray) -> Unit)? = null
     var onError: ((String) -> Unit)? = null
@@ -40,6 +41,10 @@ class EyeCamera(private val context: Context) {
         opening = true
         val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val id = pickCamera(cm) ?: run { opening = false; onError?.invoke("No camera found"); return }
+        // The sensor's mounting angle: baked into each JPEG so the frame Gemini
+        // sees is upright (it arrived rotated 90° before this).
+        sensorOrientation = cm.getCameraCharacteristics(id)
+            .get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
         val size = pickSize(cm, id)
         val r = ImageReader.newInstance(size.first, size.second, ImageFormat.JPEG, 2)
         r.setOnImageAvailableListener({ rd ->
@@ -87,6 +92,9 @@ class EyeCamera(private val context: Context) {
                 addTarget(r.surface)
                 set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
                 set(CaptureRequest.JPEG_QUALITY, 82.toByte())
+                // Glasses are worn level; the sensor's mounting angle is the whole
+                // correction needed for an upright frame.
+                set(CaptureRequest.JPEG_ORIENTATION, sensorOrientation)
             }
             s.capture(req.build(), null, handler)
         }.onFailure { Log.w(TAG, "capture failed: ${it.message}") }

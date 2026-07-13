@@ -34,7 +34,7 @@ class ScienceBrain(private val store: SciStore) {
 
     /** How the beat should be pitched, per the scientist's configured audience. */
     private fun audienceLine(level: Int): String = when (level) {
-        0 -> "Your listener is a curious elementary-school child: very simple everyday words, short sentences, delightful comparisons to familiar things — but never talk down."
+        0 -> "Your listener is a curious elementary-school child: very simple everyday words and short sentences — but stay anchored to the scene. Start from the actual thing in the image, name it plainly (\"see that lamp?\"), and only then compare it to familiar things. Never drift into a generic story that ignores what is visible, and never talk down."
         1 -> "Your listener is a sharp middle-school student: clear simple language, concrete examples, and instantly define any word they might not know."
         3 -> "Your listeners are graduate students: be technically precise, assume a solid foundation, and introduce advanced ideas with brief, sharp clarification."
         4 -> "Your listeners are fellow PhDs at a seminar: full precision and nuance, use the field's terminology freely, and dwell on what is subtle or contested rather than the basics."
@@ -58,7 +58,10 @@ class ScienceBrain(private val store: SciStore) {
 
             Speak the NEXT beat of your running lecture: two to four flowing sentences
             (about 50-80 words) that pick up from where you left off and move to a fresh
-            detail actually visible in the image. Always finish your final sentence.
+            detail actually visible in the image. Anchor the beat to ONE concrete object
+            or feature you can genuinely see, and name it explicitly early in the beat so
+            the listener knows exactly what you are looking at. Always finish your final
+            sentence.
             ${audienceLine(level)}
 
             Plain conversational spoken prose only — no lists, no markdown, no stage

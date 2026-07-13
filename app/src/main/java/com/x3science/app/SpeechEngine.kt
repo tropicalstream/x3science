@@ -51,9 +51,11 @@ class SpeechEngine(private val context: Context, private val store: SciStore) {
         }.onSuccess { Log.i(TAG, "tts ok engine=${store.engine}") }
             .onFailure { Log.w(TAG, "tts failed: ${it.message}") }.getOrNull()
 
-    /** Play a synthesized file. onDone fires on the main thread at the end of
-     *  playback (or on failure); the file is deleted either way. */
-    fun play(audio: File, onDone: () -> Unit) {
+    /** Play a synthesized file. [onStart] fires on the main thread with the exact
+     *  audio duration once playback begins — the pipeline uses it to time the
+     *  next capture. onDone fires at the end (or on failure); the file is
+     *  deleted either way. */
+    fun play(audio: File, onStart: (durationMs: Int) -> Unit = {}, onDone: () -> Unit) {
         stop()
         main.post {
             runCatching {
@@ -66,6 +68,7 @@ class SpeechEngine(private val context: Context, private val store: SciStore) {
                 mp.setOnCompletionListener { cleanup(mp, audio); onDone() }
                 mp.setOnErrorListener { _, _, _ -> cleanup(mp, audio); onDone(); true }
                 mp.prepare(); mp.start()
+                onStart(mp.duration)
             }.onFailure { audio.delete(); onDone() }
         }
     }
